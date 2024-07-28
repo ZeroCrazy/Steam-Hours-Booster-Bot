@@ -1,0 +1,40 @@
+{
+  "name": "Steam-Hours-Booster-Bot",
+  "version": "1.0.0",
+  "description": "A Node.js bot to automate Steam game playtime, enhancing your profile activity. Developed by ZeroCrazy. Features include automatic playtime management, Steam Guard integration, customizable game lists, and real-time notifications for friend requests, items, and trades.",
+  "main": "steam_app.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZeroCrazy/Steam-Hours-Booster-Bot"
+  },
+  "keywords": [
+    "steam",
+    "idler",
+    "hour",
+    "steam bot",
+    "games",
+    "steam games"
+  ],
+  "author": "ZeroCrazy",
+  "license": "GPLv3",
+  "bugs": {
+    "url": "https://github.com/ZeroCrazy/Steam-Hours-Booster-Bot/issues"
+  },
+  "dependencies": {
+    "@doctormckay/stdlib": "^2.10.0",
+    "@doctormckay/user-agents": "^1.0.0",
+    "axios": "^1.7.2",
+    "chalk": "^4.1.2",
+    "debug": "^4.3.6",
+    "kvparser": "^1.0.2",
+    "node-bignumber": "^1.2.2",
+    "protobufjs": "^7.3.2",
+    "readline-sync": "^1.4.10",
+    "socks-proxy-agent": "^8.0.4",
+    "steam-user": "^4.29.3",
+    "steamcommunity": "^3.43.5",
+    "steamid": "^2.0.0",
+    "tiny-typed-emitter": "^2.1.0",
+    "websocket13": "^4.0.0"
+  }
+}

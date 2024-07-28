@@ -21,20 +21,22 @@ const settings = {
 };
 
 // Initial variables and messages
-console.log(chalk.black.bold.bgWhite('    Steam Hours Booster Bot    '));
-console.log(chalk.gray.underline(' v1.0.0'));
-console.log(chalk.black.bold.bgWhite('      Steam Login             '));
 console.log(' ');
-console.log(chalk.red.bold.bgYellow('    Support the Project: Donate to our Steam inventory or via PayPal. 30% goes to an animal foundation and 70% supports further development and Discord bot hosting.'));
+console.log(chalk.black.bold.bgWhite('    Steam Hours Booster Bot    '));
+console.log(' ');
+console.log(chalk.black.bold.bgWhite('      Steam Login             '));
 console.log(' ');
 
 // Request login credentials
+console.log(' ');
 const username = readlineSync.question(chalk.gray.bold(' Username: '));
+console.log(' ');
 const password = readlineSync.question(chalk.gray.bold(' Password: '), { hideEchoBack: true });
+console.log(' ');
 
 // Check if the user has Steam Guard enabled
 const hasSteamGuard = readlineSync.keyInYNStrict('Do you have Steam Guard enabled?');
-
+console.log(' ');
 // Function to get the game name from AppID
 async function getGameName(appId) {
   try {
@@ -77,6 +79,40 @@ function startLogin() {
       shutdown();
     }
   });
+  console.log(' ');
+
+  // Tiempo de juego
+  const playTimes = settings.games.reduce((acc, gameId) => {
+    acc[gameId] = { start: null, total: 0 };
+    return acc;
+  }, {});
+
+  let startTime;
+
+  function formatTime(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  async function displayPlayTimes() {
+    const now = Date.now();
+    const elapsedTime = Math.floor((now - startTime) / 1000); // Tiempo transcurrido desde que el bot se inició
+    
+    for (const gameId of settings.games) {
+      const playTime = playTimes[gameId];
+      if (playTime.start) {
+        playTime.total += (now - playTime.start) / 1000;
+      }
+      
+      const gameName = await getGameName(gameId);
+      console.log(`**Total play on ${gameName} (${gameId}):** ${formatTime(elapsedTime)}`);
+    }
+  }
+
+  // Mostrar tiempos y actualizar cada minuto
+  setInterval(displayPlayTimes, 60000);
 
   client.on('error', (err) => {
     handleError(err);

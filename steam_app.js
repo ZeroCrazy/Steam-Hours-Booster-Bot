@@ -37,6 +37,7 @@ console.log(' ');
 // Check if the user has Steam Guard enabled
 const hasSteamGuard = readlineSync.keyInYNStrict('Do you have Steam Guard enabled?');
 console.log(' ');
+
 // Function to get the game name from AppID
 async function getGameName(appId) {
   try {
@@ -57,90 +58,100 @@ async function getGameName(appId) {
 // Store user information
 const userNames = {};
 
-function startLogin() {
-  client.logOn({
-    accountName: username,
-    password: password
-  });
+// Function to start login process with retries
+async function startLogin(retryCount = 0) {
+  try {
+    client.logOn({
+      accountName: username,
+      password: password
+    });
 
-  client.on('loggedOn', () => {
-    console.log(chalk.green('Logged on Steam Client.'));
-    client.setPersona(SteamUser.EPersonaState.Away);
-    client.gamesPlayed(CountGamesUsed(settings.games));
-    startTime = Date.now(); // Initialize start time
-  });
+    client.on('loggedOn', () => {
+      console.log(chalk.green('Logged on Steam Client.'));
+      client.setPersona(SteamUser.EPersonaState.Away);
+      client.gamesPlayed(CountGamesUsed(settings.games));
+      startTime = Date.now(); // Initialize start time
+    });
 
-  client.on('steamGuard', (domain, callback) => {
-    if (hasSteamGuard) {
-      const steamGuardCode = readlineSync.question(chalk.gray.bold(' Steam Guard Code: '));
-      callback(steamGuardCode);
-    } else {
-      console.log(chalk.red('Steam Guard is required but not provided.'));
-      shutdown();
-    }
-  });
-  console.log(' ');
-
-  // Tiempo de juego
-  const playTimes = settings.games.reduce((acc, gameId) => {
-    acc[gameId] = { start: null, total: 0 };
-    return acc;
-  }, {});
-
-  let startTime;
-
-  function formatTime(seconds) {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
-
-  async function displayPlayTimes() {
-    const now = Date.now();
-    const elapsedTime = Math.floor((now - startTime) / 1000); // Tiempo transcurrido desde que el bot se inició
-    
-    for (const gameId of settings.games) {
-      const playTime = playTimes[gameId];
-      if (playTime.start) {
-        playTime.total += (now - playTime.start) / 1000;
+    client.on('steamGuard', (domain, callback) => {
+      if (hasSteamGuard) {
+        const steamGuardCode = readlineSync.question(chalk.gray.bold(' Steam Guard Code: '));
+        callback(steamGuardCode);
+      } else {
+        console.log(chalk.red('Steam Guard is required but not provided.'));
+        shutdown();
       }
+    });
+
+    // Tiempo de juego
+    const playTimes = settings.games.reduce((acc, gameId) => {
+      acc[gameId] = { start: null, total: 0 };
+      return acc;
+    }, {});
+
+    let startTime;
+
+    function formatTime(seconds) {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    async function displayPlayTimes() {
+      const now = Date.now();
+      const elapsedTime = Math.floor((now - startTime) / 1000); // Tiempo transcurrido desde que el bot se inició
       
-      const gameName = await getGameName(gameId);
-      console.log(`**Total play on ${gameName} (${gameId}):** ${formatTime(elapsedTime)}`);
+      for (const gameId of settings.games) {
+        const playTime = playTimes[gameId];
+        if (playTime.start) {
+          playTime.total += (now - playTime.start) / 1000;
+        }
+        
+        const gameName = await getGameName(gameId);
+        console.log(`**Total play on ${gameName} (${gameId}):** ${formatTime(elapsedTime)}`);
+      }
+    }
+
+    // Mostrar tiempos y actualizar cada minuto
+    setInterval(displayPlayTimes, 60000);
+
+    client.on('error', (err) => {
+      handleError(err, retryCount);
+    });
+
+    client.on('friendMessage', async (steamID, message) => {
+      const now = new Date();
+      const timeString = now.toISOString().substr(11, 8); // hh:mm:ss format
+      
+      // Get the user's name
+      const userName = userNames[steamID.getSteamID64()] || 'Unknown';
+      
+      // Received message
+      const receivedMessage = chalk.yellow(`${timeString} - [MESSAGE 📥][${userName}] ${message}`);
+      console.log(receivedMessage);
+      
+      // Respond to the message
+      const responseMessage = await handleFriendMessage(steamID, message);
+      
+      // Sent message
+      if (responseMessage) {
+        const sentMessage = chalk.blue(`${timeString} - [MESSAGE 📤][${userName}] ${responseMessage}`);
+        console.log(sentMessage);
+        
+        // Send the response message
+        client.chatMessage(steamID, responseMessage);
+      }
+    });
+  } catch (error) {
+    if (retryCount < 5) {
+      console.log(chalk.yellow('An error occurred during login. Retrying in 60 seconds...'));
+      setTimeout(() => startLogin(retryCount + 1), 60000); // Retry after 60 seconds
+    } else {
+      console.log(chalk.red('Max retry attempts reached. Exiting...'));
+      shutdown(1);
     }
   }
-
-  // Mostrar tiempos y actualizar cada minuto
-  setInterval(displayPlayTimes, 60000);
-
-  client.on('error', (err) => {
-    handleError(err);
-  });
-
-  client.on('friendMessage', async (steamID, message) => {
-    const now = new Date();
-    const timeString = now.toISOString().substr(11, 8); // hh:mm:ss format
-    
-    // Get the user's name
-    const userName = userNames[steamID.getSteamID64()] || 'Unknown';
-    
-    // Received message
-    const receivedMessage = chalk.yellow(`${timeString} - [MESSAGE 📥][${userName}] ${message}`);
-    console.log(receivedMessage);
-    
-    // Respond to the message
-    const responseMessage = await handleFriendMessage(steamID, message);
-    
-    // Sent message
-    if (responseMessage) {
-      const sentMessage = chalk.blue(`${timeString} - [MESSAGE 📤][${userName}] ${responseMessage}`);
-      console.log(sentMessage);
-      
-      // Send the response message
-      client.chatMessage(steamID, responseMessage);
-    }
-  });
 }
 
 async function handleFriendMessage(steamID, message) {
@@ -175,20 +186,37 @@ function CountGamesUsed(array) {
 }
 
 // Function to handle errors
-function handleError(err) {
-  if (err.eresult === SteamUser.EResult.InvalidPassword) {
-    log(chalk.red('Login Denied - User or Password Incorrect.'));
-    shutdown();
-  } else if (err.eresult === SteamUser.EResult.AlreadyLoggedInElsewhere) {
-    log(chalk.red('Login Denied - Already logged in!'));
-    shutdown();
-  } else if (err.eresult === SteamUser.EResult.AccountLogonDenied) {
-    log(chalk.red('Login Denied - SteamGuard is required.'));
-    shutdown();
-  } else {
-    log(chalk.red('An unknown error occurred.'));
-    shutdown();
+function handleError(err, retryCount) {
+  console.error('An error occurred:', err);
+
+  switch (err.eresult) {
+    case SteamUser.EResult.InvalidPassword:
+      log(chalk.red('Login Denied - User or Password Wrong.'));
+      break;
+    case SteamUser.EResult.AlreadyLoggedInElsewhere:
+      log(chalk.red('Login Denied - Already logged in!'));
+      break;
+    case SteamUser.EResult.AccountLogonDenied:
+      log(chalk.red('Login Denied - SteamGuard is required.'));
+      break;
+    case SteamUser.EResult.RateLimitExceeded:
+      console.log(chalk.yellow('Rate limit exceeded. Retrying in 60 seconds...'));
+      setTimeout(() => startLogin(retryCount), 60000); // Retry after 60 seconds
+      return;
+    default:
+      log(chalk.red('An unknown error occurred: ' + err.message));
+      break;
   }
+
+  // Log off and shut down
+  log(chalk.green('Logging off Steam Client...'));
+  client.logOff();
+  client.once('disconnected', () => {
+    process.exit(1); // Exit with error code
+  });
+  setTimeout(() => {
+    process.exit(1); // Exit with error code if not disconnected
+  }, 5000);
 }
 
 // Handle connection events

@@ -46,8 +46,10 @@ Before you start, ensure you have the following installed on your system:
 3. **Configure the Bot**
 
     Open the `steam_app.js` file and update the configuration settings as needed (e.g., Steam credentials, game IDs).
+   
+    Open the `start_with_vac.js` file if you have any VACs on your account.
 
-4. **Run the Bot**
+5. **Run the Bot**
 
     To start the bot, you can use the following command in your terminal:
 
